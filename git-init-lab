@@ -66,9 +66,8 @@ ssh_link=$(echo $output | jq ".ssh_url_to_repo")
 
 http_link=$(echo $output | jq ".http_url_to_repo")
 
-echo GitLab repo created at "${http_link}"
-
 if [[ -n $ssh_link && -n $http_link ]];then
+    echo GitLab repo created at "${http_link}"
     mkdir -p $repo
     cd $repo
     git init
