@@ -15,11 +15,11 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-#You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 repo=$1
-token=$(<$HOME/.gitlab.token)
+token=$(cat ~/.gitlab.token)
 descr=${@:2}
 
 ask() {
@@ -58,11 +58,15 @@ if [[ -n $repo && -z $descr ]];then
     descr="Project $repo"
 fi
 
-output=$(curl -H "Content-Type:application/json" https://gitlab.com/api/v3/projects?private_token=$token -d '{"name":"$repo","description":"$descr"}')
+output=$(curl -sH "Content-Type:application/json" \
+    https://gitlab.com/api/v3/projects?private_token=$token -d \
+    "{ \"name\": \"$repo\", \"description\": \"$descr\"}")
 
 ssh_link=$(echo $output | jq ".ssh_url_to_repo")
 
 http_link=$(echo $output | jq ".http_url_to_repo")
+
+echo GitLab repo created at "${http_link}"
 
 if [[ -n $ssh_link && -n $http_link ]];then
     mkdir -p $repo
@@ -73,6 +77,7 @@ if [[ -n $ssh_link && -n $http_link ]];then
     else
         git remote add origin $http_link
     fi
+    echo Run \'cd $repo\' to enter the newly created repo
     echo Make sure to run \'git push -u origin\' on your first push
     exit 0
 else
