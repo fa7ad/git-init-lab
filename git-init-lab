@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#
+# git-init-lab
+# Init a repo locally and on GitLab.com
+#
+# Copyright © 2015 Fahad Hossain<8bit.demoncoder@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+repo=$1
+token=$(<$HOME/.gitlab.token)
+descr=${@:2}
+
+ask() {
+    # http://djm.me/ask
+    while true; do
+        if [ "${2:-}" = "Y" ]; then
+            prompt="Y/n"
+            default=Y
+        elif [ "${2:-}" = "N" ]; then
+            prompt="y/N"
+            default=N
+        else
+            prompt="y/n"
+            default=
+        fi
+        # Ask the question - use /dev/tty in case stdin is redirected from somewhere else
+        read -p "$1 [$prompt] " REPLY </dev/tty
+        # Default?
+        if [ -z "$REPLY" ]; then
+            REPLY=$default
+        fi
+        # Check if the reply is valid
+        case "$REPLY" in
+            Y*|y*) return 0 ;;
+            N*|n*) return 1 ;;
+        esac
+    done
+}
+
+if [[ -z $repo ]];then
+    echo "Repo name required." 1>&2
+    exit 1
+fi
+if [[ -n $repo && -z $descr ]];then
+    echo "No desctiption provided, using repo name."
+    descr="Project $repo"
+fi
+
+output=$(curl -H "Content-Type:application/json" https://gitlab.com/api/v3/projects?private_token=$token -d '{"name":"$repo","description":"$descr"}')
+
+ssh_link=$(echo $output | jq ".ssh_url_to_repo")
+
+http_link=$(echo $output | jq ".http_url_to_repo")
+
+if [[ -n $ssh_link && -n $http_link ]];then
+    mkdir -p $repo
+    cd $repo
+    git init
+    if ask "Do you want to use the ssh URL?" Y;then
+        git remote add origin $ssh_link
+    else
+        git remote add origin $http_link
+    fi
+    echo Make sure to run \'git push -u origin\' on your first push
+    exit 0
+else
+    echo "The request seemed to have failed!"
+    echo "Please check that your token file (~/.gitlab.token) contains a valid GitLab.com private token"
+    exit 1
+fi
